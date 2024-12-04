@@ -93,6 +93,7 @@ class AudioAnalyzerApp:
     def analyze_audio(self):
         if self.y is not None:
             try:
+                # Convertir a mono si es necesario
                 if len(self.y.shape) > 1:
                     y_mono = np.mean(self.y, axis=1)
                 else:
@@ -100,17 +101,64 @@ class AudioAnalyzerApp:
 
                 # Calcular tempo y beats
                 tempo, beats = librosa.beat.beat_track(y=y_mono, sr=self.sr)
+
+                # Convertir tempo a escalar
+                tempo = tempo.item()  # Extraer valor escalar para evitar DeprecationWarning
+
+                # Convertir los frames de beats a tiempos en segundos
                 beat_times = librosa.frames_to_time(beats, sr=self.sr)
 
-                # Mostrar resultados en mensaje (corregido)
+                # Imprimir para depuración
+                print(f"Tiempos de beats detectados: {beat_times}")
+
+                # Verificar si se detectaron beats
+                if len(beat_times) > 0:
+                    first_beat = float(beat_times[0])  # Convertir explícitamente a tipo float
+                    print(f"Primer beat en segundos: {first_beat}")
+
+                    # Mostrar información en la interfaz
+                    messagebox.showinfo(
+                        "Análisis del Audio",
+                        f"Tempo: {tempo:.2f} BPM\n"
+                        f"Número de beats detectados: {len(beats)}\n"
+                        f"Primer beat: {first_beat:.2f} segundos"
+                    )
+                else:
+                    messagebox.showinfo(
+                        "Análisis del Audio",
+                        f"Tempo: {tempo:.2f} BPM\nNo se detectaron beats en el audio."
+                    )
+
+            except Exception as e:
+                # Capturar error y mostrar mensaje
+                messagebox.showerror("Error", f"Error durante el análisis del audio: {e}")
+
+    def detect_key(self):
+        if self.y is not None:
+            try:
+                # Obtener los tonos (pitches) y las magnitudes a través del análisis de Fourier
+                pitches, magnitudes = librosa.piptrack(y=self.y, sr=self.sr)
+
+                # Detectar la frecuencia más prominente en cada frame
+                predominant_pitches = []
+                for i in range(magnitudes.shape[1]):
+                    index = magnitudes[:, i].argmax()
+                    pitch = pitches[index, i]
+                    if pitch > 0:
+                        predominant_pitches.append(pitch)
+
+                # Convertir los tonos predominantes a una escala musical
+                scale, key = librosa.key.key_estimate(y=self.y, sr=self.sr)
+
+                # Mostrar resultados
                 messagebox.showinfo(
-                    "Análisis del Audio",
-                    f"Tempo: {tempo:.2f} BPM\nNúmero de beats detectados: {len(beats)}\n"
-                    f"Primera beat: {beat_times[0]:.2f} segundos" if len(beat_times) > 0 else "No se detectaron beats"
+                    "Tonalidad Detectada",
+                    f"Tonalidad: {key} ({scale})"
                 )
 
             except Exception as e:
-                messagebox.showerror("Error", f"Error durante el análisis del audio: {e}")
+                # Capturar error y mostrar mensaje
+                messagebox.showerror("Error", f"Error durante la detección de la tonalidad: {e}")
 
 if __name__ == "__main__":
     root = tk.Tk()
